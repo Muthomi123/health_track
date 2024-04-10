@@ -1,0 +1,23 @@
+{
+  "canisters": {
+    "health_track": {
+      "type": "custom",
+      "main": "src/index.ts",
+      "candid": "src/index.did",
+      "candid_gen": "http",
+      "build": "npx azle health_track",
+      "wasm": ".azle/health_track/health_track.wasm",
+      "gzip": true,
+      "metadata": [
+        {
+            "name": "candid:service",
+            "path": "src/index.did"
+        },
+        {
+            "name": "cdk:name",
+            "content": "azle"
+        }
+    ]
+    }
+  }
+}
