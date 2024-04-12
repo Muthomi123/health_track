@@ -9,6 +9,13 @@ class Doctor {
   name: string;
   specialty: string;
   createdAt: Date;
+
+  constructor(name: string, specialty: string) {
+    this.id = uuidv4();
+    this.name = name;
+    this.specialty = specialty;
+    this.createdAt = new Date();
+  }
 }
 
 // Define the Patient class to represent patients
@@ -18,6 +25,14 @@ class Patient {
   age: number;
   gender: string;
   createdAt: Date;
+
+  constructor(name: string, age: number, gender: string) {
+    this.id = uuidv4();
+    this.name = name;
+    this.age = age;
+    this.gender = gender;
+    this.createdAt = new Date();
+  }
 }
 
 // Define the Appointment class to represent appointments
@@ -30,6 +45,17 @@ class Appointment {
   description: string;
   createdAt: Date;
   updatedAt: Date | null;
+
+  constructor(patientId: string, doctorId: string, dateTime: Date, duration: number, description: string) {
+    this.id = uuidv4();
+    this.patientId = patientId;
+    this.doctorId = doctorId;
+    this.dateTime = dateTime;
+    this.duration = duration;
+    this.description = description;
+    this.createdAt = new Date();
+    this.updatedAt = null;
+  }
 }
 
 // Define the PatientRecord class to represent patient records
@@ -41,6 +67,16 @@ class PatientRecord {
   treatment: string;
   medications: string[];
   createdAt: Date;
+
+  constructor(patientId: string, doctorId: string, diagnosis: string, treatment: string, medications: string[]) {
+    this.id = uuidv4();
+    this.patientId = patientId;
+    this.doctorId = doctorId;
+    this.diagnosis = diagnosis;
+    this.treatment = treatment;
+    this.medications = medications;
+    this.createdAt = new Date();
+  }
 }
 
 // Define the Medication class to represent medications
@@ -51,19 +87,22 @@ class Medication {
   frequency: string;
   patientId: string;
   createdAt: Date;
+
+  constructor(name: string, dosage: string, frequency: string, patientId: string) {
+    this.id = uuidv4();
+    this.name = name;
+    this.dosage = dosage;
+    this.frequency = frequency;
+    this.patientId = patientId;
+    this.createdAt = new Date();
+  }
 }
 
-// Initialize stable maps for storing doctors and patients
+// Initialize stable maps for storing doctors, patients, appointments, patient records, and medications
 const doctorsStorage = StableBTreeMap<string, Doctor>(0);
 const patientsStorage = StableBTreeMap<string, Patient>(1);
-
-// Initialize a stable map for storing appointments
 const appointmentsStorage = StableBTreeMap<string, Appointment>(2);
-
-// Initialize a stable map for storing patient records
 const patientRecordsStorage = StableBTreeMap<string, PatientRecord>(3);
-
-// Initialize a stable map for storing medications
 const medicationsStorage = StableBTreeMap<string, Medication>(4);
 
 // Define the express server
@@ -73,11 +112,8 @@ export default Server(() => {
 
   // Endpoint for creating a new doctor
   app.post("/doctors", (req, res) => {
-    const doctor: Doctor = {
-      id: uuidv4(),
-      createdAt: getCurrentDate(),
-      ...req.body,
-    };
+    const { name, specialty } = req.body;
+    const doctor = new Doctor(name, specialty);
     doctorsStorage.insert(doctor.id, doctor);
     res.json(doctor);
   });
@@ -89,11 +125,8 @@ export default Server(() => {
 
   // Endpoint for creating a new patient
   app.post("/patients", (req, res) => {
-    const patient: Patient = {
-      id: uuidv4(),
-      createdAt: getCurrentDate(),
-      ...req.body,
-    };
+    const { name, age, gender } = req.body;
+    const patient = new Patient(name, age, gender);
     patientsStorage.insert(patient.id, patient);
     res.json(patient);
   });
@@ -105,11 +138,8 @@ export default Server(() => {
 
   // Endpoint for creating a new appointment
   app.post("/appointments", (req, res) => {
-    const appointment: Appointment = {
-      id: uuidv4(),
-      createdAt: getCurrentDate(),
-      ...req.body,
-    };
+    const { patientId, doctorId, dateTime, duration, description } = req.body;
+    const appointment = new Appointment(patientId, doctorId, new Date(dateTime), duration, description);
     appointmentsStorage.insert(appointment.id, appointment);
     res.json(appointment);
   });
@@ -122,60 +152,44 @@ export default Server(() => {
   // Endpoint for retrieving a specific appointment by ID
   app.get("/appointments/:id", (req, res) => {
     const appointmentId = req.params.id;
-    const appointmentOpt = appointmentsStorage.get(appointmentId);
-    if ("None" in appointmentOpt) {
-      res
-        .status(404)
-        .send(`the appointment with id=${appointmentId} not found`);
+    const appointment = appointmentsStorage.get(appointmentId);
+    if (appointment) {
+      res.json(appointment);
     } else {
-      res.json(appointmentOpt.Some);
+      res.status(404).send(`Appointment with ID ${appointmentId} not found`);
     }
   });
 
   // Endpoint for updating an appointment
   app.put("/appointments/:id", (req, res) => {
     const appointmentId = req.params.id;
-    const appointmentOpt = appointmentsStorage.get(appointmentId);
-    if ("None" in appointmentOpt) {
-      res
-        .status(400)
-        .send(
-          `couldn't update an appointment with id=${appointmentId}. appointment not found`
-        );
-    } else {
-      const appointment = appointmentOpt.Some;
-      const updatedAppointment = {
-        ...appointment,
-        ...req.body,
-        updatedAt: getCurrentDate(),
-      };
-      appointmentsStorage.insert(appointment.id, updatedAppointment);
+    const appointment = appointmentsStorage.get(appointmentId);
+    if (appointment) {
+      const { patientId, doctorId, dateTime, duration, description } = req.body;
+      const updatedAppointment = new Appointment(patientId, doctorId, new Date(dateTime), duration, description);
+      updatedAppointment.updatedAt = new Date();
+      appointmentsStorage.insert(appointmentId, updatedAppointment);
       res.json(updatedAppointment);
+    } else {
+      res.status(404).send(`Appointment with ID ${appointmentId} not found`);
     }
   });
 
   // Endpoint for deleting an appointment
   app.delete("/appointments/:id", (req, res) => {
     const appointmentId = req.params.id;
-    const deletedAppointment = appointmentsStorage.remove(appointmentId);
-    if ("None" in deletedAppointment) {
-      res
-        .status(400)
-        .send(
-          `couldn't delete an appointment with id=${appointmentId}. appointment not found`
-        );
+    const appointment = appointmentsStorage.remove(appointmentId);
+    if (appointment) {
+      res.json(appointment);
     } else {
-      res.json(deletedAppointment.Some);
+      res.status(404).send(`Appointment with ID ${appointmentId} not found`);
     }
   });
 
   // Endpoint for creating a new patient record
   app.post("/patient-records", (req, res) => {
-    const patientRecord: PatientRecord = {
-      id: uuidv4(),
-      createdAt: getCurrentDate(),
-      ...req.body,
-    };
+    const { patientId, doctorId, diagnosis, treatment, medications } = req.body;
+    const patientRecord = new PatientRecord(patientId, doctorId, diagnosis, treatment, medications);
     patientRecordsStorage.insert(patientRecord.id, patientRecord);
     res.json(patientRecord);
   });
@@ -205,11 +219,8 @@ export default Server(() => {
 
   // Endpoint for creating a new medication
   app.post("/medications", (req, res) => {
-    const medication: Medication = {
-      id: uuidv4(),
-      createdAt: getCurrentDate(),
-      ...req.body,
-    };
+    const { name, dosage, frequency, patientId } = req.body;
+    const medication = new Medication(name, dosage, frequency, patientId);
     medicationsStorage.insert(medication.id, medication);
     res.json(medication);
   });
@@ -234,6 +245,6 @@ export default Server(() => {
 
 // Function to get the current date
 function getCurrentDate() {
-  const timestamp = new Number(ic.time());
-  return new Date(timestamp.valueOf() / 1000_000);
+  const timestamp = ic.time();
+  return new Date(timestamp / 1000000);
 }
